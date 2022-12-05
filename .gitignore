@@ -30,3 +30,19 @@
 *.exe
 *.out
 *.app
+
+# IDE files
+.cache/
+.vs/
+.vscode/
+.idea/
+
+# Builds
+VsProject/
+Debug/
+Release/
+build/
+release/
+compile_commands.json
+
+
