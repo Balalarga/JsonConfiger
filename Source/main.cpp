@@ -3,6 +3,6 @@
 
 int main(int argc, char** argv)
 {
-    nlohmann::json json;
+
     return 0;
 }
