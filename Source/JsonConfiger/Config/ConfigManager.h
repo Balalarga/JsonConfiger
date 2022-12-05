@@ -1,55 +1,45 @@
 ﻿#pragma once
-#include <cassert>
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <string>
-#include "IConfig.h"
 
 namespace JC
 {
+class IJsonConfig;
+
+struct ConfigMetadata
+{
+	std::shared_ptr<IJsonConfig> config;
+	bool bWasLoaded = false;
+};
+
 class ConfigManager
 {
-	friend class IConfig;
 public:
-	~ConfigManager() = default;
-
+	ConfigManager(const std::string& baseDirPath);
+	~ConfigManager();
+	
 	template<class T, class ...TArgs>
-	std::enable_if_t<std::derived_from<T, IConfig>, std::shared_ptr<T>> CreateConfigs(TArgs&& ...args)
+	std::enable_if_t<std::derived_from<T, IJsonConfig>, ConfigMetadata> CreateConfig(TArgs&& ...args)
 	{
-		ConfigData configData;
-		configData.userConfig = std::make_shared<T>(args...);
-		configData.defaultConfig = std::make_shared<T>(args...);
-		assert(!_configs.contains(configData.defaultConfig->GetFilepath()));
+		auto config = std::make_shared<T>(args...);
+		config->_filepath = std::filesystem::path(_baseDirPath).append(config->_filepath).generic_string();
 		
-		_configs[configData.defaultConfig->GetFilepath()] = configData;
+		auto meta = ConfigMetadata{config, LoadConfig(config)};
+		_configs[config->GetFilepath()] = meta;
 		
-		LoadConfig(configData);
-		if (configData.defaultConfig->IsDefaultOnly())
-			return std::static_pointer_cast<T>(configData.defaultConfig);
-		return std::static_pointer_cast<T>(configData.userConfig);
+		return meta;
 	}
-	
-	static std::string GetConfigDir();
-	static std::string GetDefaultConfigDir();
-	
-	void SaveAll();
-	
-	std::map<std::string, std::shared_ptr<IConfig>> GetConfigs();
 
+	const ConfigMetadata* GetMetadata(const std::shared_ptr<IJsonConfig>& config) const;
 	
+	bool LoadConfig(const std::shared_ptr<IJsonConfig>& config);
+	bool SaveConfig(const std::shared_ptr<IJsonConfig>& config);
+
 private:
-	struct ConfigData
-	{
-		std::shared_ptr<IConfig> defaultConfig;
-		std::shared_ptr<IConfig> userConfig;
-	};
+	const std::string& _baseDirPath;
 	
-	std::map<std::string, ConfigData> _configs;
-	
-	void LoadConfig(ConfigData& configs) const;
-	void LoadDefaultConfig(std::shared_ptr<IConfig>& configs) const;
-	
-	void SaveConfig(ConfigData& configs) const;
-	void SaveDefaultConfig(std::shared_ptr<IConfig>& configs) const;
+	std::map<std::string, ConfigMetadata> _configs;
 };
 }

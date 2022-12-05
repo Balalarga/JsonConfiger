@@ -1,87 +1,63 @@
 ﻿#include "ConfigManager.h"
-#include "Config/IConfig.h"
+
+#include "JsonConfiger/Archive/JsonArchive.h"
+#include "IJsonConfig.h"
 
 namespace JC
 {
-void ConfigManager::SaveAll()
+ConfigManager::ConfigManager(const std::string& baseDirPath):
+	_baseDirPath(baseDirPath)
 {
-	for (auto& config : _configs | std::views::values)
-	{
-		if (!config.defaultConfig->IsDefaultOnly() && *config.defaultConfig != *config.userConfig)
-			SaveConfig(config);
-#if defined(_DEBUG) || defined(DEBUG) 
-		SaveDefaultConfig(config.defaultConfig);
-#endif
-	}
 }
 
-std::map<std::string, std::shared_ptr<IConfig>> ConfigManager::GetConfigs()
+ConfigManager::~ConfigManager()
 {
-	std::map<std::string, std::shared_ptr<IConfig>> result;
-	for (auto& [path, config] : _configs)
-	{
-		size_t nameStart = path.find_last_of('/');
-		if (nameStart ==  std::string::npos)
-			nameStart = path.find_last_of('\\');
-		if (nameStart ==  std::string::npos)
-			nameStart = 0;
-		
-		const std::string name = path.substr(nameStart);
-		if (config.defaultConfig->IsDefaultOnly())
-			result.insert({name, config.defaultConfig});
-		else
-			result.insert({name, config.userConfig});
-	}
-	return result;
+	for (ConfigMetadata& meta : _configs | std::views::values)
+		SaveConfig(meta.config);
 }
 
-void ConfigManager::LoadConfig(ConfigData& configs) const
+const ConfigMetadata* ConfigManager::GetMetadata(const std::shared_ptr<IJsonConfig>& config) const
 {
-	LoadDefaultConfig(configs.defaultConfig);
-	if (configs.defaultConfig->IsDefaultOnly())
-		return;
+	if (!config)
+		return nullptr;
 	
-	std::string path = GetFullPath(configs.userConfig.get());
-	if (Files::IsFileExists(path))
-	{
-		JsonArchive serializer(path, ArchiveMode::Read);
-		if (serializer.Open())
-			configs.userConfig->Serialize(serializer);
-		else
-			Logger::Error(fmt::format("Couldn't open {}", path));
-	}
+	auto it = _configs.find(config->GetFilepath());
+	if (it != _configs.end())
+		return &it->second;
+
+	return nullptr;
 }
 
-void ConfigManager::LoadDefaultConfig(std::shared_ptr<IConfig>& config) const
+bool ConfigManager::LoadConfig(const std::shared_ptr<IJsonConfig>& config)
 {
-	std::string path = GetFullDefaultPath(config.get());
-	if (Files::IsFileExists(path))
-	{
-		JsonArchive serializer(path, ArchiveMode::Read);
-		if (serializer.Open())
-			config->Serialize(serializer);
-		else
-			Logger::Error(fmt::format("Couldn't open {}", path));
-	}
-}
-
-void ConfigManager::SaveConfig(ConfigData& config) const
-{
-	std::string path = GetFullPath(config.userConfig.get());
-	JsonArchive serializer(path, ArchiveMode::Write);
+	if (!config)
+		return false;
+	
+	JsonArchive serializer(config->GetFilepath(), ArchiveMode::Read);
 	if (serializer.Open())
-		config.userConfig->Serialize(serializer);
-	else
-		Logger::Error(fmt::format("Couldn't open {}", path));
+	{
+		config->Serialize(&serializer);
+		return true;
+	}
+	
+	return false;
 }
 
-void ConfigManager::SaveDefaultConfig(std::shared_ptr<IConfig>& config) const
+bool ConfigManager::SaveConfig(const std::shared_ptr<IJsonConfig>& config)
 {
-	std::string path = GetFullDefaultPath(config.get());
-	JsonArchive serializer(path, ArchiveMode::Write);
+	if (!config)
+		return false;
+	std::filesystem::path path(config->GetFilepath());
+	if (path.has_parent_path() && !exists(path.parent_path()))
+		create_directories(path.parent_path());
+	
+	JsonArchive serializer(config->GetFilepath(), ArchiveMode::Write);
 	if (serializer.Open())
-		config->Serialize(serializer);
-	else
-		Logger::Error(fmt::format("Couldn't open {}", path));
+	{
+		config->Serialize(&serializer);
+		return true;
+	}
+	
+	return false;
 }
 }

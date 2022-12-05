@@ -17,3 +17,5 @@ target_include_directories(${PROJECT_NAME} PRIVATE Source)
 
 target_link_libraries (${PROJECT_NAME} LINK_PUBLIC JsonConfiger)
 target_include_directories(${PROJECT_NAME} PUBLIC JsonConfiger)
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE "PROJECT_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
