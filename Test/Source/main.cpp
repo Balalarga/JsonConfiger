@@ -21,10 +21,16 @@ int main(int argc, char** argv)
         {
             stream->Serialize("val", val);
         }
+        
+        bool Equals(const IJsonConfig* oth) const override
+        {
+            auto casted = dynamic_cast<const Config*>(oth);
+            assert(casted);
+            return casted->val == val;
+        }
         int val = 0;
     };
     JC::ConfigMetadata data = manager.CreateConfig<Config>();
-    std::cout << data.bWasLoaded << std::endl;
     
     return 0;
 }

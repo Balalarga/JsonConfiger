@@ -11,6 +11,7 @@ class IJsonConfig;
 struct ConfigMetadata
 {
 	std::shared_ptr<IJsonConfig> config;
+	std::shared_ptr<IJsonConfig> diskConfig;
 	bool bWasLoaded = false;
 };
 
@@ -26,7 +27,9 @@ public:
 		auto config = std::make_shared<T>(args...);
 		config->_filepath = std::filesystem::path(_baseDirPath).append(config->_filepath).generic_string();
 		
-		auto meta = ConfigMetadata{config, LoadConfig(config)};
+		bool bLoaded = LoadConfig(config);
+		
+		auto meta = ConfigMetadata{config, bLoaded ? std::make_shared<T>(*config) : nullptr, bLoaded};
 		_configs[config->GetFilepath()] = meta;
 		
 		return meta;
@@ -35,7 +38,7 @@ public:
 	const ConfigMetadata* GetMetadata(const std::shared_ptr<IJsonConfig>& config) const;
 	
 	bool LoadConfig(const std::shared_ptr<IJsonConfig>& config);
-	bool SaveConfig(const std::shared_ptr<IJsonConfig>& config);
+	bool SaveConfig(const ConfigMetadata* config);
 
 private:
 	const std::string& _baseDirPath;

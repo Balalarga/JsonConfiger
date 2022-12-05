@@ -15,6 +15,7 @@ public:
 	const std::string& GetFilepath() const { return _filepath; }
 	const std::string& GetConfigName() const { return _name; }
 	
+	virtual bool Equals(const IJsonConfig* oth) const { return false; }
 	virtual void Serialize(JsonArchive* stream) = 0;
 	
 	

@@ -13,7 +13,7 @@ ConfigManager::ConfigManager(const std::string& baseDirPath):
 ConfigManager::~ConfigManager()
 {
 	for (ConfigMetadata& meta : _configs | std::views::values)
-		SaveConfig(meta.config);
+		SaveConfig(&meta);
 }
 
 const ConfigMetadata* ConfigManager::GetMetadata(const std::shared_ptr<IJsonConfig>& config) const
@@ -43,18 +43,23 @@ bool ConfigManager::LoadConfig(const std::shared_ptr<IJsonConfig>& config)
 	return false;
 }
 
-bool ConfigManager::SaveConfig(const std::shared_ptr<IJsonConfig>& config)
+bool ConfigManager::SaveConfig(const ConfigMetadata* meta)
 {
-	if (!config)
+	if (!meta || !meta->config)
 		return false;
-	std::filesystem::path path(config->GetFilepath());
+	
+	if (meta->config->Equals(meta->diskConfig.get()))
+		return true;
+	
+	std::filesystem::path path(meta->config->GetFilepath());
 	if (path.has_parent_path() && !exists(path.parent_path()))
 		create_directories(path.parent_path());
 	
-	JsonArchive serializer(config->GetFilepath(), ArchiveMode::Write);
+	JsonArchive serializer(meta->config->GetFilepath(), ArchiveMode::Write);
 	if (serializer.Open())
 	{
-		config->Serialize(&serializer);
+		meta->config->Serialize(&serializer);
+		*meta->diskConfig = *meta->config;
 		return true;
 	}
 	
